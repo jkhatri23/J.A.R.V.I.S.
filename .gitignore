@@ -1,0 +1,4 @@
+# Spotify cache files
+.spotify_caches
+.cache
+.env 
