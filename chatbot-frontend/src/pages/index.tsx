@@ -4,6 +4,7 @@ import { Orbitron } from 'next/font/google';
 const orbitron = Orbitron({
   subsets: ['latin'],
   weight: ['500', '700'],
+  display: 'swap',
 });
 
 // Add this function at the top of the file, before the Home component

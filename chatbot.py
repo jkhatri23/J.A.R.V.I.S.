@@ -10,7 +10,12 @@ import re
 load_dotenv()
 
 # Initialize the OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
+
+client = OpenAI()
+os.environ["OPENAI_API_KEY"] = api_key
 
 # API configuration
 API_URL = "http://127.0.0.1:8000"
