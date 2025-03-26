@@ -2,6 +2,12 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
+# Unset any proxy settings
+ENV http_proxy=
+ENV https_proxy=
+ENV HTTP_PROXY=
+ENV HTTPS_PROXY=
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \

@@ -14,8 +14,8 @@ api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     raise ValueError("OPENAI_API_KEY environment variable is not set")
 
-client = OpenAI()
-os.environ["OPENAI_API_KEY"] = api_key
+# Initialize client without any additional parameters
+client = OpenAI(api_key=api_key)
 
 # API configuration
 API_URL = "http://127.0.0.1:8000"
@@ -35,31 +35,42 @@ def get_default_save_path():
     else:
         return os.path.join(os.path.expanduser("~"), "Downloads")  # Mac/Linux
 
-def create_file(filename, content=""):
-    """Creates a new file in the Downloads folder with optional content"""
-    save_path = get_default_save_path()
-    os.makedirs(save_path, exist_ok=True)  # Ensure Downloads folder exists
-
-    file_path = os.path.join(save_path, filename)
-
-    if os.path.exists(file_path):
-        confirm = input(f"⚠️ File '{filename}' already exists. Overwrite? (yes/no): ").strip().lower()
-        if confirm != 'yes':
-            return f"❌ File '{filename}' was NOT overwritten."
-
+def create_file(file_name: str, content: str) -> str:
+    """Create a new file with the given content."""
     try:
-        # If file is a .docx, create it properly
-        if filename.endswith(".docx"):
-            doc = Document()
-            doc.add_paragraph(content)
-            doc.save(file_path)
-        else:  # Otherwise, treat it as a normal text file
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(content)
-
-        return f"✅ File '{filename}' created successfully at: {file_path}"
+        # Use Downloads folder for file storage
+        file_path = os.path.join("/app/downloads", file_name)
+        with open(file_path, "w") as f:
+            f.write(content)
+        return f"File '{file_name}' created successfully in Downloads folder."
     except Exception as e:
-        return f"⚠️ Error creating file '{filename}': {e}"
+        return f"Error creating file: {str(e)}"
+
+def delete_file(file_name: str) -> str:
+    """Delete a file."""
+    try:
+        # Use Downloads folder for file storage
+        file_path = os.path.join("/app/downloads", file_name)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return f"File '{file_name}' deleted successfully from Downloads folder."
+        else:
+            return f"File '{file_name}' not found in Downloads folder."
+    except Exception as e:
+        return f"Error deleting file: {str(e)}"
+
+def read_file(file_name: str) -> str:
+    """Read the contents of a file."""
+    try:
+        # Use Downloads folder for file storage
+        file_path = os.path.join("/app/downloads", file_name)
+        if os.path.exists(file_path):
+            with open(file_path, "r") as f:
+                return f.read()
+        else:
+            return f"File '{file_name}' not found in Downloads folder."
+    except Exception as e:
+        return f"Error reading file: {str(e)}"
 
 def find_file(filename):
     """Search for the file in common directories"""
@@ -88,19 +99,6 @@ def get_search_paths():
             "/Users",  # MacOS User profiles
             "/home",  # Linux home directories
         ]
-
-def delete_file(filename):
-    """Finds and deletes a file by name"""
-    file_path = find_file(filename)
-
-    if file_path:
-        try:
-            os.remove(file_path)
-            return f"✅ File '{filename}' deleted successfully from: {file_path}"
-        except Exception as e:
-            return f"⚠️ Error deleting '{filename}': {e}"
-    else:
-        return f"❌ File '{filename}' not found."
 
 def extract_song_name(text):
     """Extract song name from natural language text"""

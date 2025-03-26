@@ -27,4 +27,5 @@ services:
       - HTTP_PROXY=
       - HTTPS_PROXY=
     volumes:
-      - ./.env:/app/.env 
+      - ./.env:/app/.env
+      - ~/Downloads:/app/downloads 
