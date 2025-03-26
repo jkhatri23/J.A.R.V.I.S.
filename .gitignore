@@ -100,3 +100,24 @@ out/
 .vscode/
 *.swp
 *.swo
+
+# Generated files
+shared_files/
+*.txt
+*.docx
+*.doc
+*.pdf
+*.csv
+*.json
+*.log
+*.cache
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.spotify_caches
