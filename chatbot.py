@@ -5,6 +5,11 @@ import requests
 from openai import OpenAI
 from docx import Document  # Import python-docx for Word document creation
 import re
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
