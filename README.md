@@ -13,5 +13,5 @@ J.A.R.V.I.S. (Just A Rather Very Intelligent System) is an AI-powered chatbot de
 ## Current State:
 - Can delete files (mostly anywhere) by using “delete file NAME.extension”
 - Can create files with “create file NAME.extension” AND can write in .txt files and .docx files
-- Can answer normal GPT questions
+- C
 - Can play songs, albums, or podcasts on spotify and can add songs, albums, or podcasts to user's queue
