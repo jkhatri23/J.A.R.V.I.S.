@@ -6,6 +6,7 @@ from openai import OpenAI
 from docx import Document  # Import python-docx for Word document creation
 import re
 import logging
+from typing import Optional, Tuple
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -34,58 +35,226 @@ def chat_gpt(prompt):
     return response.choices[0].message.content.strip()
 
 def get_default_save_path():
-    """Returns the correct Downloads folder for Windows, Mac, and Linux."""
+    """Returns the root directory for the operating system."""
+    # When running in Docker, use the /host mount point
+    if os.path.exists("/host"):
+        # Return the /host directory since we're mounting specific directories
+        return "/host"
+    
+    # For local development
     if platform.system() == "Windows":
-        return os.path.join(os.environ["USERPROFILE"], "Downloads")  # Windows
-    else:
-        return os.path.join(os.path.expanduser("~"), "Downloads")  # Mac/Linux
+        return "C:\\"  # Windows root
+    elif platform.system() == "Darwin":  # macOS
+        return "/"
+    else:  # Linux
+        return "/"
 
-def create_file(file_name: str, content: str) -> str:
-    """Create a new file with the given content."""
+def find_directory_dfs(start_path: str, target_dir: str) -> Optional[str]:
+    """
+    Perform a depth-first search to find a directory in the file system.
+    Returns the full path if found, None otherwise.
+    """
     try:
-        # Use Downloads folder for file storage
-        file_path = os.path.join("/app/downloads", file_name)
+        # Add logging to debug the search
+        logger.debug(f"Starting directory search from: {start_path}")
+        logger.debug(f"Looking for directory: {target_dir}")
+        
+        # Common directories to check first
+        common_dirs = [
+            os.path.join(start_path, "Desktop"),
+            os.path.join(start_path, "Documents"),
+            os.path.join(start_path, "Downloads"),
+            os.path.join(start_path, "Pictures"),
+            os.path.join(start_path, "Music"),
+            os.path.join(start_path, "Videos")
+        ]
+        
+        # Check common directories first
+        for dir_path in common_dirs:
+            if os.path.exists(dir_path) and target_dir.lower() == os.path.basename(dir_path).lower():
+                logger.debug(f"Found directory in common paths: {dir_path}")
+                return dir_path
+        
+        # If not found in common directories, check if the target directory exists directly
+        target_path = os.path.join(start_path, target_dir)
+        if os.path.exists(target_path):
+            logger.debug(f"Found directory directly at: {target_path}")
+            return target_path
+            
+        # If still not found, perform a depth-first search
+        for root, dirs, _ in os.walk(start_path):
+            for dir_name in dirs:
+                if dir_name.lower() == target_dir.lower():
+                    found_path = os.path.join(root, dir_name)
+                    logger.debug(f"Found directory in DFS: {found_path}")
+                    return found_path
+            
+        logger.debug(f"Directory '{target_dir}' not found in the file system")
+        return None
+    except PermissionError:
+        logger.warning(f"Permission denied accessing {start_path}")
+    except Exception as e:
+        logger.error(f"Error searching directory: {str(e)}")
+    return None
+
+def find_file_dfs(start_path: str, target_file: str) -> Optional[str]:
+    """
+    Perform a depth-first search to find a file in the file system.
+    Returns the full path if found, None otherwise.
+    """
+    try:
+        for root, dirs, files in os.walk(start_path):
+            if target_file in files:
+                return os.path.join(root, target_file)
+    except PermissionError:
+        logger.warning(f"Permission denied accessing {start_path}")
+    except Exception as e:
+        logger.error(f"Error searching file: {str(e)}")
+    return None
+
+def create_file(file_name: str, content: str, target_dir: Optional[str] = None) -> str:
+    """Create a new file with the given content in the specified directory."""
+    try:
+        # Get the base path from the host filesystem
+        base_path = get_default_save_path()
+        logger.debug(f"Base path: {base_path}")
+        
+        if target_dir:
+            # Find the target directory using DFS
+            found_dir = find_directory_dfs(base_path, target_dir)
+            if not found_dir:
+                logger.error(f"Directory '{target_dir}' not found in the file system.")
+                return f"Directory '{target_dir}' not found in the file system."
+            file_path = os.path.join(found_dir, file_name)
+            logger.debug(f"Target directory found: {found_dir}")
+        else:
+            # If no target directory specified, create in Downloads by default
+            file_path = os.path.join(base_path, "Downloads", file_name)
+            logger.debug("No target directory specified, using Downloads as default")
+            
+        # Add logging to debug file creation
+        logger.debug(f"Creating file at path: {file_path}")
+        
+        # Ensure the directory exists and has proper permissions
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
         with open(file_path, "w") as f:
             f.write(content)
-        return f"File '{file_name}' created successfully in Downloads folder."
+            
+        # Set proper permissions on the file
+        os.chmod(file_path, 0o644)  # Readable by everyone, writable by owner
+        
+        return f"File '{file_name}' created successfully in {os.path.dirname(file_path)}."
     except Exception as e:
+        logger.error(f"Error creating file: {str(e)}")
         return f"Error creating file: {str(e)}"
 
-def delete_file(file_name: str) -> str:
-    """Delete a file."""
+def delete_file(file_name: str, target_dir: Optional[str] = None) -> str:
+    """Delete a file from the specified directory."""
     try:
-        # Use Downloads folder for file storage
-        file_path = os.path.join("/app/downloads", file_name)
+        # Get the base path from the host filesystem
+        base_path = get_default_save_path()
+        logger.debug(f"Base path: {base_path}")
+        logger.debug(f"Looking for file to delete: {file_name}")
+        
+        # If target directory is specified, search only in that directory
+        if target_dir:
+            found_dir = find_directory_dfs(base_path, target_dir)
+            if not found_dir:
+                logger.error(f"Directory '{target_dir}' not found in the file system.")
+                return f"Directory '{target_dir}' not found in the file system."
+            file_path = os.path.join(found_dir, file_name)
+            logger.debug(f"Looking for file in specified directory: {found_dir}")
+        else:
+            # Search for the file in the entire filesystem
+            # Common directories to check first
+            common_dirs = [
+                os.path.join(base_path, "Desktop"),
+                os.path.join(base_path, "Documents"),
+                os.path.join(base_path, "Downloads"),
+                os.path.join(base_path, "Pictures"),
+                os.path.join(base_path, "Music"),
+                os.path.join(base_path, "Videos")
+            ]
+            
+            # Check common directories first
+            for dir_path in common_dirs:
+                if os.path.exists(dir_path):
+                    file_path = os.path.join(dir_path, file_name)
+                    if os.path.exists(file_path):
+                        logger.debug(f"Found file in common path: {file_path}")
+                        break
+            else:
+                # If not found in common directories, check if the file exists directly
+                file_path = os.path.join(base_path, file_name)
+                if not os.path.exists(file_path):
+                    # If still not found, perform a depth-first search
+                    for root, _, files in os.walk(base_path):
+                        if file_name in files:
+                            file_path = os.path.join(root, file_name)
+                            logger.debug(f"Found file in DFS: {file_path}")
+                            break
+                    else:
+                        return f"File '{file_name}' not found in the file system."
+            
+        logger.debug(f"Attempting to delete file at path: {file_path}")
+            
         if os.path.exists(file_path):
             os.remove(file_path)
-            return f"File '{file_name}' deleted successfully from Downloads folder."
+            return f"File '{file_name}' deleted successfully from {os.path.dirname(file_path)}."
         else:
-            return f"File '{file_name}' not found in Downloads folder."
+            return f"File '{file_name}' not found in the file system."
     except Exception as e:
+        logger.error(f"Error deleting file: {str(e)}")
         return f"Error deleting file: {str(e)}"
 
-def read_file(file_name: str) -> str:
-    """Read the contents of a file."""
+def find_file(file_name: str) -> str:
+    """Find a file in the file system using depth-first search."""
     try:
-        # Use Downloads folder for file storage
-        file_path = os.path.join("/app/downloads", file_name)
-        if os.path.exists(file_path):
-            with open(file_path, "r") as f:
-                return f.read()
-        else:
-            return f"File '{file_name}' not found in Downloads folder."
+        # Get the base path from the host filesystem
+        base_path = get_default_save_path()
+        logger.debug(f"Base path: {base_path}")
+        logger.debug(f"Looking for file: {file_name}")
+        
+        # Common directories to check first
+        common_dirs = [
+            os.path.join(base_path, "Desktop"),
+            os.path.join(base_path, "Documents"),
+            os.path.join(base_path, "Downloads"),
+            os.path.join(base_path, "Pictures"),
+            os.path.join(base_path, "Music"),
+            os.path.join(base_path, "Videos")
+        ]
+        
+        # Check common directories first
+        for dir_path in common_dirs:
+            if os.path.exists(dir_path):
+                file_path = os.path.join(dir_path, file_name)
+                if os.path.exists(file_path):
+                    logger.debug(f"Found file in common path: {file_path}")
+                    return f"File '{file_name}' found at: {file_path}"
+        
+        # If not found in common directories, check if the file exists directly
+        direct_path = os.path.join(base_path, file_name)
+        if os.path.exists(direct_path):
+            logger.debug(f"Found file directly at: {direct_path}")
+            return f"File '{file_name}' found at: {direct_path}"
+            
+        # If still not found, perform a depth-first search
+        for root, _, files in os.walk(base_path):
+            if file_name in files:
+                found_path = os.path.join(root, file_name)
+                logger.debug(f"Found file in DFS: {found_path}")
+                return f"File '{file_name}' found at: {found_path}"
+            
+        logger.debug(f"File '{file_name}' not found in the file system")
+        return f"File '{file_name}' not found in the file system."
+    except PermissionError:
+        logger.warning(f"Permission denied accessing {base_path}")
+        return f"Permission denied while searching for file '{file_name}'"
     except Exception as e:
-        return f"Error reading file: {str(e)}"
-
-def find_file(filename):
-    """Search for the file in common directories"""
-    search_paths = get_search_paths()
-
-    for search_path in search_paths:
-        for root, _, files in os.walk(search_path):
-            if filename in files:
-                return os.path.join(root, filename)  # Return full file path
-    return None  # File not found
+        logger.error(f"Error finding file: {str(e)}")
+        return f"Error finding file: {str(e)}"
 
 def get_search_paths():
     """Returns a list of directories to search based on the OS"""
@@ -282,7 +451,9 @@ def chatbot():
     print("- Queue albums (e.g., 'queue album Scorpion by Drake' or 'add album Scorpion to queue')")
     print("- Play podcasts (e.g., 'play podcast Impaulsive' or 'play The Joe Rogan Experience')")
     print("- Queue podcasts (e.g., 'queue podcast Impaulsive' or 'add The Joe Rogan Experience to queue')")
-    print("- Create or delete files")
+    print("- Create files in specific directories (e.g., 'create file test.txt in Documents')")
+    print("- Delete files from specific directories (e.g., 'delete file test.txt from Documents')")
+    print("- Find files in the system (e.g., 'find file test.txt')")
     print("- Or just chat with me!")
     print("Type 'quit' to exit.")
 
@@ -293,8 +464,38 @@ def chatbot():
             print("Goodbye!")
             break
 
+        # Check if user wants to delete a file
+        elif user_input.lower().startswith("delete file "):
+            parts = user_input[12:].strip().split(" from ")
+            if len(parts) == 2:
+                filename, target_dir = parts
+                result = delete_file(filename.strip(), target_dir.strip())
+            else:
+                filename = parts[0]
+                result = delete_file(filename.strip())
+            print(f"Chatbot: {result}")
+
+        # Check if user wants to create a file
+        elif user_input.lower().startswith("create file "):
+            parts = user_input[12:].strip().split(" in ")
+            if len(parts) == 2:
+                filename, target_dir = parts
+                content = input("Enter file content (or leave blank for an empty file): ")
+                result = create_file(filename.strip(), content, target_dir.strip())
+            else:
+                filename = parts[0]
+                content = input("Enter file content (or leave blank for an empty file): ")
+                result = create_file(filename.strip(), content)
+            print(f"Chatbot: {result}")
+
+        # Check if user wants to find a file
+        elif user_input.lower().startswith("find file "):
+            filename = user_input[10:].strip()
+            result = find_file(filename)
+            print(f"Chatbot: {result}")
+
         # First check if it's a music request
-        if any(word in user_input.lower() for word in ["play", "queue", "song", "music", "spotify"]):
+        elif any(word in user_input.lower() for word in ["play", "queue", "song", "music", "spotify"]):
             print(f"Debug: Detected music request: {user_input}")  # Debug line
             song_name = extract_song_name(user_input)
             if song_name:
@@ -304,19 +505,6 @@ def chatbot():
                 continue
             else:
                 print(f"Debug: No song name extracted from: {user_input}")  # Debug line
-
-        # Check if user wants to delete a file
-        elif user_input.lower().startswith("delete file "):
-            filename = user_input[12:].strip()
-            result = delete_file(filename)
-            print(f"Chatbot: {result}")
-
-        # Check if user wants to create a file
-        elif user_input.lower().startswith("create file "):
-            filename = user_input[12:].strip()
-            content = input("Enter file content (or leave blank for an empty file): ")
-            result = create_file(filename, content)
-            print(f"Chatbot: {result}")
 
         else:
             try:

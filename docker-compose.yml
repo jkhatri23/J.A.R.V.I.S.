@@ -28,4 +28,13 @@ services:
       - HTTPS_PROXY=
     volumes:
       - ./.env:/app/.env
-      - ~/Downloads:/app/downloads 
+      - ~/Desktop:/host/Desktop:rw
+      - ~/Documents:/host/Documents:rw
+      - ~/Downloads:/host/Downloads:rw
+      - ~/Pictures:/host/Pictures:rw
+      - ~/Music:/host/Music:rw
+      - ~/Videos:/host/Videos:rw
+    privileged: true
+    # Use environment variables for user and group IDs
+    # To set these, run: export DOCKER_USER_ID=$(id -u) && export DOCKER_GROUP_ID=$(id -g)
+    user: "${DOCKER_USER_ID:-1000}:${DOCKER_GROUP_ID:-1000}" 

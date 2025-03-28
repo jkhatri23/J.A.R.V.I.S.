@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from chatbot import chat_gpt, create_file, delete_file
+from chatbot import chat_gpt, create_file, delete_file, find_file
 from fastapi.responses import RedirectResponse, HTMLResponse
 import logging
 import traceback
@@ -39,6 +39,10 @@ class ChatRequest(BaseModel):
 class FileRequest(BaseModel):
     filename: str
     content: str = ""  # Default content is empty if not provided
+    target_dir: str | None = None  # Add target_dir field
+
+class FileSearchRequest(BaseModel):
+    filename: str
 
 class SpotifyRequest(BaseModel):
     song_name: str
@@ -55,7 +59,12 @@ async def delete_file_api(request: FileRequest):
 
 @app.post("/create-file")
 async def create_file_api(request: FileRequest):
-    response = create_file(request.filename, request.content)
+    response = create_file(request.filename, request.content, request.target_dir)
+    return {"response": response}
+
+@app.post("/find-file")
+async def find_file_api(request: FileSearchRequest):
+    response = find_file(request.filename)
     return {"response": response}
 
 @app.post("/spotify/play-song")

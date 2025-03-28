@@ -89,7 +89,7 @@ function extractSongName(text: string): { name: string; type: 'song' | 'album' |
 export default function Home() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [input, setInput] = useState("");
-  const [createFileMode, setCreateFileMode] = useState<{ filename: string } | null>(null);
+  const [createFileMode, setCreateFileMode] = useState<{ filename: string; targetDir?: string } | null>(null);
   const [fileContent, setFileContent] = useState("");
 
   // Add message listener for Spotify OAuth callback
@@ -116,8 +116,38 @@ export default function Home() {
     let response;
 
     try {
+      // Check for file operations first
+      if (input.toLowerCase().startsWith("delete file ")) {
+        const parts = input.slice(12).trim().split(" from ");
+        const filename = parts[0].trim();
+        const targetDir = parts[1]?.trim();
+        
+        response = await fetch("http://127.0.0.1:8000/delete-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename, target_dir: targetDir }),
+        });
+      } 
+      // Check for file creation
+      else if (input.toLowerCase().startsWith("create file ")) {
+        const parts = input.slice(12).trim().split(" in ");
+        const filename = parts[0].trim();
+        const targetDir = parts[1]?.trim();
+        
+        setCreateFileMode({ filename, targetDir });
+        return; // stop here to wait for file content input
+      }
+      // Check for file finding
+      else if (input.toLowerCase().startsWith("find file ")) {
+        const filename = input.slice(10).trim();
+        response = await fetch("http://127.0.0.1:8000/find-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename }),
+        });
+      }
       // Check for music requests
-      if (input.toLowerCase().includes("play") || input.toLowerCase().includes("queue") || 
+      else if (input.toLowerCase().includes("play") || input.toLowerCase().includes("queue") || 
           input.toLowerCase().includes("song") || input.toLowerCase().includes("music") || 
           input.toLowerCase().includes("spotify") || input.toLowerCase().includes("album") ||
           input.toLowerCase().includes("podcast")) {
@@ -167,21 +197,6 @@ export default function Home() {
         setMessages((prev) => [...prev, botMessage]);
         return;
       }
-      // Check for file deletion
-      else if (input.toLowerCase().startsWith("delete file ")) {
-        const filename = input.slice(12).trim();
-        response = await fetch("http://127.0.0.1:8000/delete-file", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename }),
-        });
-      } 
-      // Check for file creation
-      else if (input.toLowerCase().startsWith("create file ")) {
-        const filename = input.slice(12).trim();
-        setCreateFileMode({ filename });
-        return; // stop here to wait for file content input
-      } 
       // Default to chat
       else {
         try {
@@ -231,12 +246,16 @@ export default function Home() {
   const submitFileContent = async () => {
     if (!createFileMode) return;
 
-    const { filename } = createFileMode;
+    const { filename, targetDir } = createFileMode;
 
     const response = await fetch("http://127.0.0.1:8000/create-file", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename, content: fileContent }),
+      body: JSON.stringify({ 
+        filename, 
+        content: fileContent, 
+        target_dir: targetDir 
+      }),
     });
 
     const data = await response.json();
@@ -282,7 +301,8 @@ export default function Home() {
         {createFileMode && (
           <div className="flex flex-col space-y-2">
             <p className="text-sm text-blue-300">
-              Enter content for <span className="font-bold">{createFileMode.filename}</span>:
+              Enter content for <span className="font-bold">{createFileMode.filename}</span>
+              {createFileMode.targetDir && ` in directory ${createFileMode.targetDir}`}:
             </p>
             <textarea
               rows={4}
@@ -320,7 +340,7 @@ export default function Home() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder="Type a message... (e.g., 'create file test.txt in Documents' or 'find file test.txt')"
           />
           <button
             className="bg-blue-400 hover:bg-blue-700 text-white px-6 py-3 rounded-r-lg"
