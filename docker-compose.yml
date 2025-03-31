@@ -28,6 +28,7 @@ services:
       - HTTPS_PROXY=
     volumes:
       - ./.env:/app/.env
+      - ./.spotify_caches:/app/.spotify_caches:rw
       - ~/Desktop:/host/Desktop:rw
       - ~/Documents:/host/Documents:rw
       - ~/Downloads:/host/Downloads:rw

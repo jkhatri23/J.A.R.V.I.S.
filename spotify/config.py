@@ -63,6 +63,7 @@ def get_active_device(sp):
     try:
         # Get current playback state
         current_playback = sp.current_playback()
+        logger.info(f"Current playback state: {current_playback}")
         
         # If there's an active device, return its ID
         if current_playback and current_playback.get('device'):
@@ -72,6 +73,8 @@ def get_active_device(sp):
         
         # If no active device, get list of devices
         devices = sp.devices()
+        logger.info(f"All available devices: {devices}")
+        
         if not devices['devices']:
             logger.warning("No Spotify devices found")
             return None
@@ -79,7 +82,7 @@ def get_active_device(sp):
         # Log all available devices
         logger.info("Available Spotify devices:")
         for device in devices['devices']:
-            logger.info(f"- {device.get('name')} ({device.get('type')}) - Active: {device.get('is_active')}")
+            logger.info(f"- {device.get('name')} ({device.get('type')}) - Active: {device.get('is_active')} - ID: {device.get('id')}")
             
         # Find the active device
         active_device = next((device for device in devices['devices'] if device.get('is_active')), None)
