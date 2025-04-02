@@ -17,8 +17,12 @@ SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 SCOPE = "user-read-playback-state user-modify-playback-state user-read-currently-playing"
 
+# Get absolute path for cache file
+CACHE_PATH = os.path.join(os.path.expanduser('~'), '.cache-spotify')
+
 # Log configuration (without exposing secrets)
 logger.info(f"Spotify configuration loaded - Redirect URI: {SPOTIPY_REDIRECT_URI}")
+logger.info(f"Cache path: {CACHE_PATH}")
 
 # Initialize Spotify OAuth
 try:
@@ -28,7 +32,7 @@ try:
         redirect_uri=SPOTIPY_REDIRECT_URI,
         scope=SCOPE,
         open_browser=False,
-        cache_path=".spotify_caches"  # Specify cache file location
+        cache_path=CACHE_PATH
     )
     logger.info("Successfully initialized Spotify OAuth")
 except Exception as e:

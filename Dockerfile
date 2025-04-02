@@ -27,8 +27,13 @@ RUN . $HOME/.cargo/env && pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create a non-root user
-RUN useradd -m -u 1000 appuser && \
+RUN useradd -m -u 501 appuser && \
     chown -R appuser:appuser /app
+
+# Create Spotify cache file in user's home
+RUN touch /home/appuser/.cache-spotify && \
+    chown appuser:appuser /home/appuser/.cache-spotify && \
+    chmod 600 /home/appuser/.cache-spotify
 
 # Switch to non-root user
 USER appuser
