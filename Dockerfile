@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN . $HOME/.cargo/env && pip install --no-cache-dir -r requirements.txt
+RUN . $HOME/.cargo/env && pip install --no-cache-dir -r requirements.txt python-docx
 
 # Copy the rest of the application code
 COPY . .
